@@ -46,44 +46,26 @@ def content_rec(desired_neighbourhood,desired_number_person,low_price,high_price
     filtered_listings = listings_df[(listings_df['accommodates'] == desired_number_person) &
                                    (listings_df['neighbourhood_cleansed'] == desired_neighbourhood) &
                                    (listings_df['price'] >= low_price) &
-                                   (listings_df['price'] <= high_price)]
+                                   (listings_df['price'] <= high_price)].reset_index()
 
     # Step 2: take user input and clean it
-    def clean_text(input_text):
-
-        # Remove punctuation
-        translator = str.maketrans('', '', string.punctuation)
-        cleaned_text = input_text.translate(translator)
-
-        # Convert to lowercase and strip leading/trailing spaces
-        cleaned_text = cleaned_text.lower().strip()
-
-        return cleaned_text
-
-    input_text = 'Apartment with bal%cony, (cups), dishesß, kitchen, öl, coffee table,for 2 person, 3rd or above floor, sunny, wifi, tv'
-    cleaned_text = clean_text(input_text)
+    cleaned_text = preprocess_text(input_text)
 
     # Step 3: Calculate TF-IDF for Input Text and Filtered Listings
     tfidf_vectorizer = TfidfVectorizer(analyzer = 'word') #, max_df=0.95, min_df=0
-    tfidf_matrix = tfidf_vectorizer.fit_transform(filtered_listings['desc_proc'])
-    input_tfidf = tfidf_vectorizer.transform([cleaned_text])
-
+    tfidf_matrix = tfidf_vectorizer.fit_transform(filtered_listings['desc_proc'].values.tolist()+[cleaned_text])
+    
     # Step 4: Calculate Cosine Similarity
-    cosine_sim = cosine_similarity(input_tfidf, tfidf_matrix,)
+    cosine_similarities = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
 
-    # Create a DataFrame with the cosine similarity scores
-    cosine_sim_df = pd.DataFrame(cosine_sim[0], index=filtered_listings.id)
-
-    # Step 5: Sort and Retrieve Top Similar Listings
-    cosine_sim_df = cosine_sim_df.sort_values(by=0,ascending=False).reset_index()
-
+    # Step 5: Sort and Retrieve Top Similar Listings indices
+    similar_listing_indices = cosine_similarities.argsort()[0][::-1][:10]
+    
     # columns
     display_columns =['id','name_0','number_of_reviews','description_cleaned','accommodates','review_scores_rating',
                       'neighbourhood_cleansed','price','listing_url','picture_url']
 
-    #    top_similar_listings = filtered_listings[display_columns].iloc[similar_listings_indices].head(10)
-    top_similar_listings = cosine_sim_df.merge(filtered_listings[display_columns],how='left')
-
+    top_similar_listings = filtered_listings.loc[similar_listing_indices, display_columns]
 
     return top_similar_listings
 
